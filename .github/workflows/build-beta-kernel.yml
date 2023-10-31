@@ -23,7 +23,7 @@ jobs:
     steps:
 
       - name: Checkout Armbian build script
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           repository: armbian/build
@@ -54,7 +54,7 @@ jobs:
           git push
 
   Prepare:
-    
+
     name: "Finding changed kernels"
     needs: [ Merge ]
     runs-on: [self-hosted, Linux, small]
@@ -89,7 +89,7 @@ jobs:
           fi
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           repository: armbian/build
@@ -98,7 +98,7 @@ jobs:
           clean: false
 
       - name: Checkout support scripts
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           repository: armbian/scripts
@@ -136,19 +136,19 @@ jobs:
           [[ ! -f .ignore_changes ]] && sudo touch .ignore_changes
           if [[ $(curl -s http://ifconfig.me) == "93.103.15.56" ]]; then
               sudo mkdir -p cache/toolchain cache/rootfs || true
-              # umount 
+              # umount
               sudo umount cache/toolchain || true
               # erase below
               sudo mountpoint -q cache/toolchain && sudo rm -rf cache/toolchain/*
               ! sudo mountpoint -q cache/toolchain && sudo rm -rf cache/toolchain/* && sudo mount nas:/tank/armbian/toolchain.armbian.com cache/toolchain -o rsize=32768,wsize=32768,timeo=5,retrans=2,actimeo=60,retry=15 || true
               ! sudo mountpoint -q cache/rootfs && sudo rm -rf cache/rootfs/* && sudo mount nas:/tank/armbian/dl.armbian.com/_rootfs cache/rootfs -o rsize=32768,wsize=32768,timeo=5,retrans=2,actimeo=60,retry=15 || true
-          fi           
+          fi
           mkdir -p cache/hash${FILE_EXT}
           sudo rsync -ar --delete ../scripts/hash${FILE_EXT}/. cache/hash${FILE_EXT}/ 2> /dev/null
           sudo cp ../scripts/configs/* userpatches/
-          sudo rm -f userpatches/targets.conf          
+          sudo rm -f userpatches/targets.conf
           if [[ "$(cat ../build-kernel/build_type 2> /dev/null || true)" =~ stable|edge ]]; then
-            cat config/targets.conf | grep edge | grep cli | grep hirsute | sudo tee userpatches/targets.conf 1>/dev/null 
+            cat config/targets.conf | grep edge | grep cli | grep hirsute | sudo tee userpatches/targets.conf 1>/dev/null
             echo "FILE_EXT=" >> $GITHUB_ENV
             echo "REPO_DEST=master" >> $GITHUB_ENV
             echo "BETA=no" >> $GITHUB_ENV
@@ -161,13 +161,13 @@ jobs:
           BETA="${{ env.BETA }}"
           MATRIX=$(cd build;./compile.sh all-new-beta-kernels BETA="$BETA" BUILD_ALL="demo" | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | egrep "^[0-9]" | awk '{ print $2 ":" $4 }' | sort | uniq)
           mkdir -p build-kernel
-          echo "no" > build-kernel/skip          
+          echo "no" > build-kernel/skip
           if [[ -z "$MATRIX" ]]; then
               MATRIX="none:none"
               echo "yes" > build-kernel/skip
-          fi          
+          fi
           echo ::set-output name=matrix::$(for x in $(echo "${MATRIX}"); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)
-          
+
   Linux:
 
     name: "Build Linux"
@@ -177,7 +177,7 @@ jobs:
     timeout-minutes: 480
     strategy:
       fail-fast: false
-      matrix: 
+      matrix:
         node: ${{fromJson(needs.Prepare.outputs.matrix)}}
 
     steps:
@@ -190,7 +190,7 @@ jobs:
           if_key_exists: replace
 
       - name: Checkout Armbian support scripts
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           repository: armbian/scripts
@@ -205,7 +205,7 @@ jobs:
           path: build-kernel
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ github.run_id }}-linux
           restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-${{ github.run_id }}-linux 
+            ${{ runner.os }}-build-${{ env.cache-name }}-${{ github.run_id }}-linux
             ${{ runner.os }}-build-${{ env.cache-name }}-${{ github.run_id }}
 
       - name: Read value
@@ -239,10 +239,10 @@ jobs:
           done
           [[ -d build/.git ]] && sudo chown -R $USER:$USER build/.git || true
           [[ -d build/output/images ]] && sudo rm -rf build/output/images/* || true
- 
+
       - name: Checkout Armbian build script
 
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           repository: armbian/build
@@ -261,15 +261,15 @@ jobs:
               BOARD=$(echo $CHUNK | cut -d":" -f1)
               BRANCH=$(echo $CHUNK | cut -d":" -f2)
               echo "FILE_NAME=${BOARD}-${BRANCH}" >> $GITHUB_ENV
-              cd build              
+              cd build
               sudo rsync -ar --delete ../scripts/hash${FILE_EXT}/. cache/hash${FILE_EXT}/ 2> /dev/null
-              [[ ! -f .ignore_changes ]] && sudo touch .ignore_changes          
-              ./compile.sh KERNEL_ONLY="yes" BOARD="bananapi" BRANCH="current" KERNEL_CONFIGURE="no" REPOSITORY_INSTALL="u-boot,kernel" 'prepare_host_basic'          
+              [[ ! -f .ignore_changes ]] && sudo touch .ignore_changes
+              ./compile.sh KERNEL_ONLY="yes" BOARD="bananapi" BRANCH="current" KERNEL_CONFIGURE="no" REPOSITORY_INSTALL="u-boot,kernel" 'prepare_host_basic'
               if [[ $(curl -s http://ifconfig.me) == "93.103.15.56" ]]; then
                   sudo mkdir -p cache/toolchain cache/rootfs || true
                   ! sudo mountpoint -q cache/toolchain && sudo mount nas:/tank/armbian/toolchain.armbian.com cache/toolchain -o rsize=32768,wsize=32768,timeo=5,retrans=2,actimeo=60,retry=15 || true
                   ! sudo mountpoint -q cache/rootfs && sudo mount nas:/tank/armbian/dl.armbian.com/_rootfs cache/rootfs -o rsize=32768,wsize=32768,timeo=5,retrans=2,actimeo=60,retry=15 || true
-              fi 
+              fi
               rm -rf output/debs*
               ./compile.sh ARMBIAN_MIRROR="https://github.com/armbian/mirror/releases/download/" BOARD="$BOARD" CLEAN_LEVEL="alldebs" \
               PRIVATE_CCACHE="yes" BETA="$BETA" KERNEL_ONLY="yes" BRANCH="$BRANCH" KERNEL_CONFIGURE="no" OFFLINE="no"
@@ -279,7 +279,7 @@ jobs:
               RAZLIKA=$(diff -q "cache/hash${FILE_EXT}/" "../scripts/hash${FILE_EXT}/" | grep -v gitlog | cut -d" " -f2)
               [[ -n $RAZLIKA ]] && cp $RAZLIKA ../build-kernel/
               cp $(diff -q "cache/hash${FILE_EXT}/" "../scripts/hash${FILE_EXT}/" | grep -v gitlog | cut -d" " -f2) ../build-kernel/
-              echo "FILE_HASH=$(diff -q "cache/hash${FILE_EXT}/" "../scripts/hash${FILE_EXT}/" | grep -v gitlog | cut -d" " -f2)"  >> $GITHUB_ENV           
+              echo "FILE_HASH=$(diff -q "cache/hash${FILE_EXT}/" "../scripts/hash${FILE_EXT}/" | grep -v gitlog | cut -d" " -f2)"  >> $GITHUB_ENV
 
           fi
 
@@ -289,7 +289,7 @@ jobs:
         with:
           name: hash
           path: build/${{ env.FILE_HASH }}
-          
+
       - name: Upload build artifacts
         if: ${{ matrix.node != 'none:none' }}
         uses: actions/upload-artifact@v2
@@ -326,7 +326,7 @@ jobs:
           path: build-kernel
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ github.run_id }}-linux
           restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-${{ github.run_id }}-linux            
+            ${{ runner.os }}-build-${{ env.cache-name }}-${{ github.run_id }}-linux
 
       - name: Read value
         run: |
@@ -342,7 +342,7 @@ jobs:
           fi
 
       - name: Checkout Armbian support scripts
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           repository: armbian/scripts
@@ -360,13 +360,13 @@ jobs:
           git-commit-gpgsign: true
 
       - name: Download artefacts
-        if: ${{ env.SKIP != 'yes' }} 
+        if: ${{ env.SKIP != 'yes' }}
         uses: actions/download-artifact@v2
         with:
           name: hash
 
       - name: Update scripts
-        if: ${{ env.SKIP != 'yes' }} 
+        if: ${{ env.SKIP != 'yes' }}
         run: |
           ls -l build-kernel
           if [[ "$(cat build-kernel/skip 2> /dev/null || true)" == "no" ]]; then
@@ -418,7 +418,7 @@ jobs:
 
       - name: Checkout Armbian build script
 
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           repository: armbian/build
@@ -427,7 +427,7 @@ jobs:
           clean: false
 
       - name: Checkout support scripts
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           repository: armbian/scripts
@@ -435,29 +435,29 @@ jobs:
           path: scripts
           clean: true
 
-      - name: Make board support packages        
+      - name: Make board support packages
         run: |
 
           if [[ "$(cat build-kernel/skip 2> /dev/null || true)" == "no" ]]; then
 
-            cd build              
+            cd build
             if [[ $(curl -s http://ifconfig.me) == "93.103.15.56" ]]; then
                sudo mkdir -p cache/toolchain cache/rootfs || true
-               # umount 
+               # umount
                sudo umount cache/toolchain || true
                # erase below
                sudo mountpoint -q cache/toolchain && sudo rm -rf cache/toolchain/*
                ! sudo mountpoint -q cache/toolchain && sudo rm -rf cache/toolchain/* && sudo mount nas:/tank/armbian/toolchain.armbian.com cache/toolchain -o rsize=32768,wsize=32768,timeo=5,retrans=2,actimeo=60,retry=15 || true
                ! sudo mountpoint -q cache/rootfs && sudo rm -rf cache/rootfs/* && sudo mount nas:/tank/armbian/dl.armbian.com/_rootfs cache/rootfs -o rsize=32768,wsize=32768,timeo=5,retrans=2,actimeo=60,retry=15 || true
-            fi   
+            fi
 
             # use prepared configs
             sudo cp ../scripts/configs/* userpatches/
 
-            [[ ! -f .ignore_changes ]] && sudo touch .ignore_changes          
-            ./compile.sh KERNEL_ONLY="yes" BOARD="bananapi" BRANCH="current" KERNEL_CONFIGURE="no" REPOSITORY_INSTALL="u-boot,kernel" 'prepare_host_basic'          
+            [[ ! -f .ignore_changes ]] && sudo touch .ignore_changes
+            ./compile.sh KERNEL_ONLY="yes" BOARD="bananapi" BRANCH="current" KERNEL_CONFIGURE="no" REPOSITORY_INSTALL="u-boot,kernel" 'prepare_host_basic'
             rm -rf output/debs*
-      
+
             ./compile.sh all-new-beta-bsp
             # wait until it finishes
             while :
@@ -468,7 +468,7 @@ jobs:
             done
           fi
 
-      - name: Deploy to server        
+      - name: Deploy to server
         run: |
 
           if [[ "$(cat build-kernel/skip 2> /dev/null || true)" == "no" ]]; then
@@ -487,7 +487,7 @@ jobs:
           git-user-signingkey: true
           git-commit-gpgsign: true
 
-      - name: Bump version        
+      - name: Bump version
         run: |
 
           if [[ "$(cat build-kernel/skip 2> /dev/null || true)" == "no" ]]; then

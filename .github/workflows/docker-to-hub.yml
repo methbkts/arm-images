@@ -14,10 +14,10 @@ jobs:
     if: ${{ github.repository_owner == 'Armbian' }}
     steps:
 
-     - uses: actions/checkout@v1
+     - uses: actions/checkout@v3
 
      - name: Login to DockerHub Registry
-       run: echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin 
+       run: echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
      - name: Build Docker image
        shell: bash {0}
